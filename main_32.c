@@ -18,25 +18,13 @@
 // Тест 4: (-2, 2), loss: 0
 // Тест 5: (-4, 4), loss: 0
 // Тест 6: (-338, 338), loss: ???
-// Тест 7: (-4, 4), loss: 0
+// Тест 7: (-1, 1), loss: 0
 
-
-size_t memoryForResult(double a, double b, double h)
-{
-    int n = (int) ((b - a) / h + 1);
-    return n * sizeof(double);
-}
-
-size_t memoryForYZLast()
-{
-    return 8 * sizeof(double);
-}
-
-int test = 7;
+int test = 5;
 
 int main()
 {
-    double a, b, h = 0.00001, eps = 0.00001;
+    double a, b, eps = 0.000001;
 
     switch (test)
     {
@@ -50,7 +38,7 @@ int main()
         default: printf("Bad test %d", test); exit(1);
     }
 
-    double c = y(a), d = y(b);
+    double h = (b - a) / 10, c = y(a), d = y(b);
 
 //    double a = 0, b = 1, c = y(a), d = y(b); // 1   0 1 1 2 0.00001 0.00001
 //    double a = 0, b = 2, c = y(a), d = y(b); // 2   0 2 1 6.0183156388887342 0.00001 0.00001
@@ -60,22 +48,17 @@ int main()
 //    double a = 0, b = 1, c = y(a), d = y(b); // 6 *d   0 1 0 3.7194955983552602 0.00001 0.00001
 //    double a = 1, b = 2, c = y(a), d = y(b); // 7   1 2 3.7194955983552602 7.4625122304402547 0.00001 0.00001
 
+//  ***Файловый ввод-вывод***
+
 //    FILE *in, *out;
 //
-//    if ((in = fopen("../in.txt", "r")) == NULL)
+//    if ((in = fopen("../in.txt", "r")) == NULL || (out = fopen("../out.txt", "w")) == NULL)
 //    {
-//        printf("Cannot open infile");
+//        printf("There is no such file");
 //        getchar();
 //        return -2;
 //    }
 //
-//    if ((out = fopen("../out.txt", "w")) == NULL)
-//    {
-//        printf("Cannot open outfile");
-//        getchar();
-//        return -3;
-//    }
-
 //    double a, b, c, d, h, eps;
 //    fscanf(in, "%lf", &a);
 //    fscanf(in, "%lf", &b);
@@ -85,38 +68,121 @@ int main()
 //    fscanf(in, "%lf", &eps);
 
     double x, loss = 0;
-    int n = (int) ((b - a) / h), i, rtn;
-    double *result = malloc((memoryForResult(a, b, h)));
-    double *yzlast = malloc(memoryForYZLast());
+    int n, i, rtn;
+    double *result, *result_2, *yz_last, *yz_last_2;
+
 
     clock_t start, end;
     start = clock();
-    rtn = solver(a, b, c, d, h, eps, yzlast, result);
+
+//  ***Подбор при помощи solver***
+
+//    while(1)
+//    {
+//        result = malloc((memoryForResult(a, b, h)));
+//        result_2 = malloc((memoryForResult(a, b, h / 2)));
+//        yz_last = malloc(memoryForYZLast());
+//        yz_last_2 = malloc(memoryForYZLast());
+//
+//        n = (int) ((b - a) / h);
+//
+//        rtn = solver(a, b, c, d, h, eps, yz_last, result);
+//        solver(a, b, c, d, h / 2, eps, yz_last_2, result_2);
+//
+//        if (metric(result, result_2, n) < eps)
+//            break;
+//
+//        free(result);
+//        free(result_2);
+//        free(yz_last);
+//        free(yz_last_2);
+//
+//        h /= 2;
+//    }
+//
+//    if(rtn == -1)
+//    {
+//        printf("Interval was not found!");
+//        return -1;
+//    }
+
+//  ***Улучшенный подбор при помощи find_interval и shoot***
+
+    double left = 0, right = 0, left_intermediate = 0, right_intermediate = 0;
+    result = malloc((memoryForResult(a, b, h)));
+    yz_last = malloc(memoryForYZLast());
+    find_interval(a, b, c, d, h, yz_last, result, &left, &right);
+    while(1)
+    {
+        result_2 = malloc((memoryForResult(a, b, h / 2)));
+        yz_last_2 = malloc(memoryForYZLast());
+
+        rtn = find_interval(a, b, c, d, h / 2, yz_last_2, result_2, &left_intermediate, &right_intermediate);
+
+        if (fabs(left - left_intermediate) < eps && fabs(right-right_intermediate) < eps)
+            break;
+
+        free(yz_last_2);
+        free(result_2);
+
+        h /= 2;
+        left = left_intermediate;
+        right = right_intermediate;
+    }
+    printf("left = %lf, right = %lf, h = %lf\n", left, right, h);
+    free(yz_last);
+    free(yz_last_2);
+    free(result);
+    free(result_2);
+
+    if(rtn == -1)
+    {
+        printf("Interval was not found!");
+        return -1;
+    }
+
+    result = malloc((memoryForResult(a, b, h)));
+    yz_last = malloc(memoryForYZLast());
+    shoot(a, b, c, d, h, eps, yz_last, result, left, right, rtn);
+    while(1)
+    {
+        result_2 = malloc((memoryForResult(a, b, h / 2)));
+        yz_last_2 = malloc(memoryForYZLast());
+
+        n = (int) ((b - a) / h);
+
+        shoot(a, b, c, d, h / 2, eps, yz_last_2, result_2, left, right, rtn);
+
+        if (metric(result, result_2, n) < eps)
+            break;
+
+        free(yz_last_2);
+        free(result);
+        result = result_2;
+        h /= 2;
+    }
+
+    free(yz_last);
+    free(yz_last_2);
+    free(result_2);
     end = clock();
 
-    if(rtn)
-        printf("Interval was not found!");
-    else
-        {
-            printf("time: %f\n", ((double) (end - start)) / CLOCKS_PER_SEC);
-            printf("nodes: %d\n", n + 1);
+    printf("time: %f\n", ((double) (end - start)) / CLOCKS_PER_SEC);
+    printf("nodes: %d\n", n + 1);
 
-            x = a;
-            for (i = 0; i <= n; i++)
-            {
-//                fprintf(out, "%1.9lf %1.9lf\n", x, result[i]);
-                loss += (y(x) - result[i]) * (y(x) - result[i]);
-                loss /= n;
-                x += h;
-            }
+    x = a;
+    for (i = 0; i <= n; i++)
+    {
+//        fprintf(out, "%1.9lf %1.9lf\n", x, result[i]);
+        loss += (y(x) - result[i]) * (y(x) - result[i]);
+        loss /= n;
+        x += h;
+    }
 
-            printf("loss: %f", loss);
-            draw(a, b, h, result);
-        }
-
+    printf("loss: %f", loss);
+    draw(a, b, h, result);
 
     free(result);
-    free(yzlast);
 
 //    fclose(in);
 //    fclose(out);

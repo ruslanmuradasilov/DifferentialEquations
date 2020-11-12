@@ -12,10 +12,22 @@ double f(double x);
 
 double y(double x);
 
-void Adams_Moulton(double a, double b, double c, double t, double h, int n, double *yzlast, double *result);
+size_t memoryForResult(double a, double b, double h);
 
-double G(double a, double b, double c, double t, double h, double *yzlast, double *result, double d);
+size_t memoryForYZLast();
 
-int solver(double a, double b, double c, double d, double h, double eps, double *yzlast, double *result);
+double metric(const double *result, const double *result_2, int n);
+
+void Adams_Moulton(double a, double b, double c, double t, double h, int n, double *yz_last, double *result);
+
+double G(double a, double b, double c, double t, double h, double *yz_last, double *result, double d);
+
+int find_interval(double a, double b, double c, double d, double h, double *yz_last, double *result, double *left,
+                  double *right);
+
+void shoot(double a, double b, double c, double d, double h, double eps, double *yz_last, double *result, double left,
+           double right, int G_ascends);
+
+//int solver(double a, double b, double c, double d, double h, double eps, double *yz_last, double *result);
 
 void draw(double a, double b, double h, double *result);

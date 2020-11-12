@@ -3,6 +3,17 @@
 // y' := g1
 // z' := g2
 
+size_t memoryForResult(double a, double b, double h)
+{
+    int n = (int) ((b - a) / h + 1);
+    return n * sizeof(double);
+}
+
+size_t memoryForYZLast()
+{
+    return 8 * sizeof(double);
+}
+
 double g1(double x, double y, double z)
 {
     return z;
@@ -13,13 +24,25 @@ double g2(double x, double y, double z)
     return f(x) - p(x) * z - q(x) * y;
 }
 
-void Adams_Moulton(double a, double b, double c, double t, double h, int n, double *yzlast, double *result)
+double metric(const double *result, const double *result_2, int n)
+{
+    int i;
+    double sum = 0;
+
+    for (i = 0; i < n; i++)
+//        sum += fabs(result[i] - result_2[i * 2]);
+        sum += (result[i] - result_2[i * 2]) * (result[i] - result_2[i * 2]);
+
+    return sum / n;
+}
+
+void Adams_Moulton(double a, double b, double c, double t, double h, int n, double *yz_last, double *result)
 {
     double k11, k12, k13, k14;
     double k21, k22, k23, k24;
     double x0, y0, z0, y1, z1;
-    double *y_last = yzlast;
-    double *z_last = yzlast + 4;
+    double *y_last = yz_last;
+    double *z_last = yz_last + 4;
     int i, j;
 
     x0 = a;
@@ -82,53 +105,121 @@ void Adams_Moulton(double a, double b, double c, double t, double h, int n, doub
     }
 }
 
-double G(double a, double b, double c, double t, double h, double *yzlast, double *result, double d)
+double G(double a, double b, double c, double t, double h, double *yz_last, double *result, double d)
 {
     int n = (int) ((b - a) / h);
-    Adams_Moulton(a, b, c, t, h, n, yzlast, result);
+    Adams_Moulton(a, b, c, t, h, n, yz_last, result);
     return result[n - 1] - d;
 }
 
 
-int solver(double a, double b, double c, double d, double h, double eps, double *yzlast, double *result)
+int find_interval(double a, double b, double c, double d, double h, double *yz_last, double *result, double *left,
+                  double *right)
 {
-    double left, right, middle;
-    double left_error, right_error, error;
-
-    double step = 1;
-    left = 0;
-    right = 0;
-
-//    left = -338;
-//    right = -337;
-
+    double left_error, right_error, step = 1;
     while (1)//подбор интервала
     {
-        left_error = G(a, b, c, left, h, yzlast, result, d);
-        right_error = G(a, b, c, right, h, yzlast, result, d);
+        left_error = G(a, b, c, *left, h, yz_last, result, d);
+        right_error = G(a, b, c, *right, h, yz_last, result, d);
         if (left_error * right_error < 0)
             break;
-        left -= step;
-        right += step;
-        printf("%lf, %lf\n", left, right);
-        if (right > 1000)
+        *left -= step;
+        *right += step;
+//        printf("%lf, %lf\n", left, right);
+        if (*right > 1000)
             return -1;//нет решения
     }
 
+    if (left_error > 0)
+        return 0;//убывает
+    else
+        return 1;//возрастает
+}
+
+void shoot(double a, double b, double c, double d, double h, double eps, double *yz_last, double *result, double left,
+           double right, int G_ascends)
+{
+    double middle, error;
     while (1)//метод половинного деления
     {
         middle = (left + right) / 2;
-        error = G(a, b, c, middle, h, yzlast, result, d);
+        error = G(a, b, c, middle, h, yz_last, result, d);
 
         if (fabs(error) < eps)
             break;
 
         if (error < 0)
-            left = middle;
+        {
+            if (G_ascends == 0)
+                right = middle;
+            else
+                left = middle;
+        }
 
         if (error > eps)
-            right = middle;
+        {
+            if (G_ascends == 0)
+                left = middle;
+            else
+                right = middle;
+        }
     }
-
-    return 0;
 }
+
+
+//int solver(double a, double b, double c, double d, double h, double eps, double *yz_last, double *result)
+//{
+//    double left, right, middle;
+//    double left_error, right_error, error;
+//
+//    int G_ascends = 1;//возрастает
+//    double step = 1;
+//    left = 0;
+//    right = 0;
+//
+////    left = -338;
+////    right = -337;
+//
+//    while (1)//подбор интервала
+//    {
+//        left_error = G(a, b, c, left, h, yz_last, result, d);
+//        right_error = G(a, b, c, right, h, yz_last, result, d);
+//        if (left_error * right_error < 0)
+//            break;
+//        left -= step;
+//        right += step;
+////        printf("%lf, %lf\n", left, right);
+//        if (right > 1000)
+//            return -1;//нет решения
+//    }
+//
+//    if(left_error > 0)
+//        G_ascends = 0;//убывает
+//
+//    while (1)//метод половинного деления
+//    {
+//        middle = (left + right) / 2;
+//        error = G(a, b, c, middle, h, yz_last, result, d);
+//
+//        if (fabs(error) < eps)
+//            break;
+//
+//        if (error < 0)
+//        {
+//            if(G_ascends == 0)
+//                right = middle;
+//            else
+//                left = middle;
+//        }
+//
+//        if (error > eps)
+//        {
+//            if(G_ascends == 0)
+//                left = middle;
+//            else
+//                right = middle;
+//        }
+//    }
+//
+//    return 0;
+//}

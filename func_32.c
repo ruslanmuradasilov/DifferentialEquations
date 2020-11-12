@@ -25,7 +25,7 @@ double q(double x)
         case 4: return 1 / (x * x * log(x));
         case 5: return (2 - x * tan(x)) / (x * x);
         case 6: return 10000;
-        case 7: return -(x * x + 3) / (x * x);
+        case 7: return (x * x + 3) / (x * x);
         default: printf("Bad test %d", test); exit(1);
     }
 }
